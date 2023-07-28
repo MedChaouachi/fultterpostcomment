@@ -316,7 +316,6 @@ class _PublicationsPageState extends State<PublicationsPage> {
   }
 
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -349,7 +348,10 @@ class _PublicationsPageState extends State<PublicationsPage> {
                       title: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(publication.title),
+                          Text(
+                            publication.title,
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -380,26 +382,34 @@ class _PublicationsPageState extends State<PublicationsPage> {
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          SizedBox(height: 8), // Add spacing between the title and content
                           Text(publication.content),
+                          SizedBox(height: 8), // Add spacing between the content and images
+                          // Display the images for the publication
+                          if (publication.imageUrls.isNotEmpty)
+                            GridView.builder(
+                              shrinkWrap: true,
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3, // Number of columns in the grid
+                                childAspectRatio: 1.0, // Aspect ratio for each image (square)
+                              ),
+                              itemCount: publication.imageUrls.length,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(4.0), // Add padding around each image
+                                  child: Image.network(
+                                    publication.imageUrls[index],
+                                    fit: BoxFit.cover, // Use cover to maintain aspect ratio and fill the container
+                                  ),
+                                );
+                              },
+                            ),
                           Text('Date de création : $formattedDateTime'),
                           if (publication.updatedAt != publication.createdAt)
                             Text('Date de modification : $formattedDateTime1'),
                         ],
                       ),
                       children: [
-                        // Display the images for the publication
-                        if (publication.imageUrls.isNotEmpty)
-                          GridView.builder(
-                            shrinkWrap: true,
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3, // Number of columns in the grid
-                            ),
-                            itemCount: publication.imageUrls.length,
-                            itemBuilder: (context, index) {
-                              return Image.network(publication.imageUrls[index]);
-                            },
-                          ),
-
                         FutureBuilder<List<Comment>>(
                           future: _databaseService.getComments(publication.id),
                           builder: (context, snapshot) {
