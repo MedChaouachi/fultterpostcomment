@@ -9,6 +9,7 @@ class PublicationsPage extends StatefulWidget {
   @override
   _PublicationsPageState createState() => _PublicationsPageState();
 }
+Publication? selectedPublication;
 
 class _PublicationsPageState extends State<PublicationsPage> {
   final DatabaseService _databaseService = DatabaseService();
@@ -16,8 +17,25 @@ class _PublicationsPageState extends State<PublicationsPage> {
   Publication? publication;
 
   Future<void> _refreshPublications() async {
-    setState(() {});
+    // Récupérer les publications à partir de la source de données externe (par exemple, une base de données)
+    List<Publication> publications = await _databaseService.getPublications();
+
+    // Mettre à jour l'état du widget avec les nouvelles publications récupérées
+    setState(() {
+      // Assurez-vous que vous avez une liste de publications pour la mettre à jour.
+      // Si la liste est null, créez-en une nouvelle pour éviter une erreur.
+      // Vous pouvez utiliser une liste vide [] comme valeur par défaut.
+      publications = publications ?? [];
+    });
   }
+
+  Future<void> _refreshPublication2() async {
+    setState(() {
+      selectedPublication = null; // Réinitialiser la publication sélectionnée pour cacher les commentaires
+    });
+    await _refreshPublications(); // Actualiser la liste des publications
+  }
+
 
   void _showEditPublicationDialog(String publicationId) async {
     Publication? currentPublication =
@@ -229,7 +247,8 @@ class _PublicationsPageState extends State<PublicationsPage> {
                   await _databaseService.updateComment(comment.id, publication.id, updatedComment);
                  // _refreshComments(publication.id); // Refresh comments using the publication's ID
                   Navigator.of(context).popUntil((route) => route.isFirst); // Close the edit comment dialog
-                  _showCommentsDialog(publication); // Show the updated comments dialog
+                 // _showCommentsDialog(publication); // Show the updated comments dialog
+                  _refreshPublications();
                 }
               },
             ),
@@ -274,7 +293,8 @@ class _PublicationsPageState extends State<PublicationsPage> {
               onPressed: () {
                 _databaseService.deleteComment(comment.id, publication.id).then((_) {
                   Navigator.of(context).popUntil((route) => route.isFirst); // Close all dialogs and return to the first screen
-                  _showCommentsDialog(publication); // Show the updated comments dialog
+                 // _showCommentsDialog(publication); // Show the updated comments dialog
+                  _refreshPublications();
                 });
               },
             ),
@@ -296,6 +316,7 @@ class _PublicationsPageState extends State<PublicationsPage> {
   }
 
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -306,42 +327,32 @@ class _PublicationsPageState extends State<PublicationsPage> {
           backgroundColor: Colors.blue,
         ),
       ),
-      body: Stack(
-        children: [
-          RefreshIndicator(
-            onRefresh: _refreshPublications,
-            child: FutureBuilder<List<Publication>>(
-              future: _databaseService.getPublications(),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  List<Publication> publications = snapshot.data!;
-                  return ListView.builder(
-                    itemCount: publications.length,
-                    itemBuilder: (context, index) {
-                      Publication publication = publications[index];
-                      String formattedDateTime = _formatDateTime(publication.createdAt);
-                      String formattedDateTime1 = _formatDateTime(publication.updatedAt);
-                      return Card(
-                        child: ListTile(
-                          title: Text(publication.title),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(publication.content),
-                              Text('Date de création : $formattedDateTime'),
-                              if (publication.updatedAt != publication.createdAt)
-                                Text('Date de modification : $formattedDateTime1'),
-                            ],
-                          ),
-                          trailing: Row(
+      body: RefreshIndicator(
+        onRefresh: _refreshPublications,
+        child: FutureBuilder<List<Publication>>(
+          future: _databaseService.getPublications(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else {
+              List<Publication> publications = snapshot.data!;
+              return ListView.builder(
+                itemCount: publications.length,
+                itemBuilder: (context, index) {
+                  Publication publication = publications[index];
+                  String formattedDateTime = _formatDateTime(publication.createdAt);
+                  String formattedDateTime1 = _formatDateTime(publication.updatedAt);
+                  return Card(
+                    child: ExpansionTile(
+                      title: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(publication.title),
+                          Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              /*  IconButton(
-                                icon: Icon(Icons.comment),
-                                onPressed: () {
-                                  _showCommentsDialog(publication); // Pass the Publication object here
-                                },
-                              ),*/
                               IconButton(
                                 icon: Icon(Icons.edit),
                                 onPressed: () {
@@ -357,30 +368,92 @@ class _PublicationsPageState extends State<PublicationsPage> {
                                 },
                               ),
                               IconButton(
-                                icon: Icon(Icons.add_comment), // Add Comment icon button
+                                icon: Icon(Icons.add_comment),
                                 onPressed: () {
-                                  _showAddCommentDialog(publication.id); // Pass the Publication ID here
+                                  _showAddCommentDialog(publication.id);
                                 },
                               ),
                             ],
                           ),
-                          onTap: () async {
-                            List<Comment> comments = await _databaseService.getComments(publication.id);
-                            _showCommentsDialog(publication); // Pass the Publication object here
+                        ],
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(publication.content),
+                          Text('Date de création : $formattedDateTime'),
+                          if (publication.updatedAt != publication.createdAt)
+                            Text('Date de modification : $formattedDateTime1'),
+                        ],
+                      ),
+                      children: [
+                        // Display the images for the publication
+                        if (publication.imageUrls.isNotEmpty)
+                          GridView.builder(
+                            shrinkWrap: true,
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3, // Number of columns in the grid
+                            ),
+                            itemCount: publication.imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return Image.network(publication.imageUrls[index]);
+                            },
+                          ),
+
+                        FutureBuilder<List<Comment>>(
+                          future: _databaseService.getComments(publication.id),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            } else if (snapshot.hasError) {
+                              return Center(child: Text('Error: ${snapshot.error}'));
+                            } else {
+                              List<Comment> comments = snapshot.data!;
+                              return Column(
+                                children: comments.map((comment) {
+                                  String formattedCreatedAt = _formatDateTime(comment.createdAt);
+                                  String formattedUpdatedAt = _formatDateTime(comment.updatedAt);
+                                  return ListTile(
+                                    title: Text(comment.content),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Date de création : $formattedCreatedAt'),
+                                        if (comment.updatedAt != comment.createdAt)
+                                          Text('Date de modification : $formattedUpdatedAt'),
+                                      ],
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(Icons.edit),
+                                          onPressed: () {
+                                            _showEditCommentDialog(comment, publication);
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: Icon(Icons.delete),
+                                          onPressed: () {
+                                            _deleteComment(publication, comment);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              );
+                            }
                           },
                         ),
-                      );
-                    },
+                      ],
+                    ),
                   );
-                } else if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                } else {
-                  return Center(child: CircularProgressIndicator());
-                }
-              },
-            ),
-          ),
-        ],
+                },
+              );
+            }
+          },
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -394,3 +467,4 @@ class _PublicationsPageState extends State<PublicationsPage> {
     );
   }
 }
+//flutter run -d chrome --web-renderer html

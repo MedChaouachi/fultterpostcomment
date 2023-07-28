@@ -4,15 +4,16 @@ import '../models/comment.dart';
 
 class DatabaseService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
   Future<void> addPublication(Publication publication) async {
     await _firestore.collection('publications').add({
       'title': publication.title,
       'content': publication.content,
+      'imageUrls': publication.imageUrls, // Add the image filenames to the new publication
       'createdAt': publication.createdAt,
       'updatedAt': publication.createdAt, // Set updatedAt to the same value as createdAt when adding a new publication
     });
   }
+
   Future<void> updatePublication(String publicationId, Publication updatedPublication) async {
     CollectionReference publications = _firestore.collection('publications');
     DocumentReference publicationRef = publications.doc(publicationId);
@@ -23,10 +24,10 @@ class DatabaseService {
     await publicationRef.update({
       'title': updatedPublication.title,
       'content': updatedPublication.content,
+      'imageUrls': updatedPublication.imageUrls, // Update the image filenames
       'updatedAt': updatedAt, // Update the updatedAt field with the current date
     });
   }
-
 
   Future<List<Publication>> getPublications() async {
     try {
@@ -34,14 +35,15 @@ class DatabaseService {
 
       return snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        DateTime? createdAt = data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now();
-        DateTime? updatedAt = data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : createdAt;
+        DateTime createdAt = data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate() : DateTime.now();
+        DateTime updatedAt = data['updatedAt'] != null ? (data['updatedAt'] as Timestamp).toDate() : createdAt;
         return Publication(
           id: doc.id,
-          title: data['title'],
-          content: data['content'],
-          createdAt: createdAt!,
-          updatedAt: updatedAt!, // Use the retrieved updatedAt value
+          title: data['title'] ?? '',
+          content: data['content'] ?? '',
+          imageUrls: List<String>.from(data['imageUrls'] ?? []), // Convert imageUrls to a list of strings
+          createdAt: createdAt,
+          updatedAt: updatedAt,
         );
       }).toList();
     } catch (error) {
@@ -50,6 +52,7 @@ class DatabaseService {
       return [];
     }
   }
+
 
 
   Future<void> deletePublication(String publicationId) async {
