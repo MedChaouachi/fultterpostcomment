@@ -45,6 +45,13 @@ dependencies:
   file_picker: ^4.1.4
   html: ^0.15.0
   firebase_storage_web: ^3.6.5
+  provider: ^5.0.0
+  webview_flutter: ^3.0.0
+  url_launcher: ^6.0.12
+  flutter_inappwebview: ^5.3.2
+  firebase_auth: ^4.7.2
+  rxdart: ^0.27.3
+
 
 dev_dependencies:
   flutter_test:

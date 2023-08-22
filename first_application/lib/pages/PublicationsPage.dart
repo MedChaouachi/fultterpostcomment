@@ -4,6 +4,7 @@ import 'package:first_application/models/publication.dart';
 import 'package:first_application/models/comment.dart';
 import 'package:first_application/services/database_service.dart';
 import 'package:first_application/pages/add_publication_page.dart';
+import 'package:provider/provider.dart';
 
 class PublicationsPage extends StatefulWidget {
   @override
